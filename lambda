@@ -1,0 +1,77 @@
+import json
+import boto3
+from boto3.dynamodb.conditions import Key
+
+s3 = boto3.client('s3')
+def lambda_handler(event, context):
+    try:
+        if event.get("function_run")=="fun1":
+            #calling function 1
+            response = fun1(event)
+    
+        elif event.get("function_run")=="fun2":
+             #calling function 2
+            response = fun2(event)
+            
+        else:
+            response = (f"Please enter proper function name in inputs{event}.")
+            
+        return {
+            'statusCod':200,
+            'response': response
+        }
+        
+    except BaseException as ex:
+        return{
+            'statusCode':500,
+            'error':str(ex)
+        }
+    
+    
+def fun1(event):
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table = dynamodb.Table(f'customer')
+    response = table.query(KeyConditionExpression=Key('telephone').eq(event["telephone"]))
+    
+    if response["telephone"] == event["telephone"]:
+        return {
+        'statusCode': 200,
+        'body': "A customer with the telephone number exists and has a phone password"
+    }
+        
+    elif response["telephone"] == event["telephone"] and response["telephone_pw"] == " ":
+        return {
+        'statusCode': 200,
+        'body': "A customer with that telephone number exists but does not have a phone password"
+    }
+    
+    else:
+        return {
+        'statusCode': 200,
+        'body': "A customer with that telephone number does not exist"
+    }
+    
+    
+    
+def fun2(event):
+    
+    dict1 = {}
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table = dynamodb.Table(f'customer')
+    response = table.query(KeyConditionExpression=Key('telephone').eq(event["telephone"]))
+    
+    #create file in s3 bucket
+    obj_response = s3.put_object(Bucket = "my_bucket", Key= "myfile.txt")
+    res_metadata = obj_response["ResponseMetadata"]
+    dict1["timestamp"] = res_metsdata["timestamp"]
+    dict1["size"] = res_metsdata["size"]
+    
+    dict1["telephone"] = event["telephone"]
+    dict1["telephone_pw"] = event["telephone_pw"]
+    if response["telephone"] == event["telephone"]:
+        resp = table.put_item(Item = dict1)
+
+     return {
+        'statusCode': 200,
+        'body': "Data updated successfully"
+    }
